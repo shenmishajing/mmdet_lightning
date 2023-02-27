@@ -1,0 +1,181 @@
+model:
+    class_path: models.mmdet_model_adapter.MMDetModelAdapter
+    init_args:
+        model:
+            class_path: mmdet.models.detectors.DINO
+            init_args:
+                num_queries: 900 # num_matching_queries
+                with_box_refine: true
+                as_two_stage: true
+                data_preprocessor:
+                    type: mmdet.DetDataPreprocessor
+                    mean: [123.675, 116.28, 103.53]
+                    std: [58.395, 57.12, 57.375]
+                    bgr_to_rgb: true
+                    pad_size_divisor: 1
+                backbone:
+                    type: ResNet
+                    depth: 50
+                    num_stages: 4
+                    out_indices: [1, 2, 3]
+                    frozen_stages: 1
+                    norm_cfg:
+                        type: BN
+                        requires_grad: false
+                    norm_eval: true
+                    style: pytorch
+                    init_cfg:
+                        type: Pretrained
+                        checkpoint: torchvision://resnet50
+                neck:
+                    type: ChannelMapper
+                    in_channels: [512, 1024, 2048]
+                    kernel_size: 1
+                    out_channels: 256
+                    act_cfg: null
+                    norm_cfg:
+                        type: GN
+                        num_groups: 32
+                    num_outs: 4
+                encoder:
+                    num_layers: 6
+                    layer_cfg:
+                        self_attn_cfg:
+                            embed_dims: 256
+                            num_levels: 4
+                            dropout: 0.0 # 0.1 for DeformDETR
+                        ffn_cfg:
+                            embed_dims: 256
+                            feedforward_channels: 2048 # 1024 for DeformDETR
+                            ffn_drop: 0.0 # 0.1 for DeformDETR
+                decoder:
+                    num_layers: 6
+                    return_intermediate: true
+                    layer_cfg:
+                        self_attn_cfg:
+                            embed_dims: 256
+                            num_heads: 8
+                            dropout: 0.0 # 0.1 for DeformDETR
+                        cross_attn_cfg:
+                            embed_dims: 256
+                            num_levels: 4
+                            dropout: 0.0 # 0.1 for DeformDETR
+                        ffn_cfg:
+                            embed_dims: 256
+                            feedforward_channels: 2048 # 1024 for DeformDETR
+                            ffn_drop: 0.0 # 0.1 for DeformDETR
+                    post_norm_cfg: null
+                positional_encoding:
+                    num_feats: 128
+                    normalize: true
+                    offset: 0.0 # -0.5 for DeformDETR
+                    temperature: 20 # 10000 for DeformDETR
+                bbox_head:
+                    type: DINOHead
+                    num_classes: 80
+                    sync_cls_avg_factor: true
+                    loss_cls:
+                        type: FocalLoss
+                        use_sigmoid: true
+                        gamma: 2.0
+                        alpha: 0.25
+                        loss_weight: 1.0 # 2.0 in DeformDETR
+                    loss_bbox:
+                        type: L1Loss
+                        loss_weight: 5.0
+                    loss_iou:
+                        type: GIoULoss
+                        loss_weight: 2.0
+                dn_cfg: # TODO: Move to model.train_cfg ?
+                    label_noise_scale: 0.5
+                    box_noise_scale: 1.0 # 0.4 for DN-DETR
+                    group_cfg:
+                        dynamic: true
+                        num_groups: null
+                        num_dn_queries: 100 # TODO: half num_dn_queries
+                # training and testing settings
+                train_cfg:
+                    assigner:
+                        type: HungarianAssigner
+                        match_costs:
+                            - type: FocalLossCost
+                              weight: 2.0
+                            - type: BBoxL1Cost
+                              weight: 5.0
+                              box_format: xywh
+                            - type: IoUCost
+                              iou_mode: giou
+                              weight: 2.0
+                test_cfg:
+                    max_per_img: 300 # 100 for DeformDETR
+
+data:
+    init_args:
+        dataset_cfg:
+            train:
+                init_args:
+                    filter_cfg:
+                        filter_empty_gt: false
+                    pipeline:
+                        - type: mmdet.LoadImageFromFile
+                          file_client_args:
+                              backend: disk
+                        - type: mmdet.LoadAnnotations
+                          with_bbox: true
+                        - type: mmdet.RandomFlip
+                          prob: 0.5
+                        - type: mmdet.RandomChoice
+                          transforms:
+                              - type: mmdet.RandomChoiceResize
+                                scales:
+                                    [
+                                        !!python/tuple [480, 1333],
+                                        !!python/tuple [512, 1333],
+                                        !!python/tuple [544, 1333],
+                                        !!python/tuple [576, 1333],
+                                        !!python/tuple [608, 1333],
+                                        !!python/tuple [640, 1333],
+                                        !!python/tuple [672, 1333],
+                                        !!python/tuple [704, 1333],
+                                        !!python/tuple [736, 1333],
+                                        !!python/tuple [768, 1333],
+                                        !!python/tuple [800, 1333],
+                                    ]
+                                resize_type: mmdet.Resize
+                                keep_ratio: true
+                              - - type: mmdet.RandomChoiceResize
+                                  # The radio of all image in train dataset < 7
+                                  # follow the original implement
+                                  scales:
+                                      [
+                                          !!python/tuple [400, 4200],
+                                          !!python/tuple [500, 4200],
+                                          !!python/tuple [600, 4200],
+                                      ]
+                                  resize_type: mmdet.Resize
+                                  keep_ratio: true
+                                - type: mmdet.RandomCrop
+                                  crop_type: absolute_range
+                                  crop_size: !!python/tuple [384, 600]
+                                  allow_negative_crop: true
+                                - type: mmdet.RandomChoiceResize
+                                  scales:
+                                      [
+                                          !!python/tuple [480, 1333],
+                                          !!python/tuple [512, 1333],
+                                          !!python/tuple [544, 1333],
+                                          !!python/tuple [576, 1333],
+                                          !!python/tuple [608, 1333],
+                                          !!python/tuple [640, 1333],
+                                          !!python/tuple [672, 1333],
+                                          !!python/tuple [704, 1333],
+                                          !!python/tuple [736, 1333],
+                                          !!python/tuple [768, 1333],
+                                          !!python/tuple [800, 1333],
+                                      ]
+                                  resize_type: mmdet.Resize
+                                  keep_ratio: true
+                        - type: mmdet.PackDetInputs
+trainer:
+    # gradient clip
+    gradient_clip_val: 0.1
