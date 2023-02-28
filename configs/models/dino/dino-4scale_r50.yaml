@@ -179,3 +179,13 @@ data:
 trainer:
     # gradient clip
     gradient_clip_val: 0.1
+
+optimizer_config:
+    optimizer:
+        init_args:
+            params:
+                - params: backbone
+                  lr: 1e-5
+                - params: null
+            lr: 1e-4
+            weight_decay: 1e-4
