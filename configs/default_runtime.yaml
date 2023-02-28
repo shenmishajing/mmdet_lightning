@@ -2,7 +2,7 @@ trainer:
     logger:
         class_path: utils.loggers.wandb.WandbNamedLogger
         init_args:
-            project: mmdetection
+            project: mmdet_lightning
             save_dir: work_dirs
             offline: false
     callbacks:
