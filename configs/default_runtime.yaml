@@ -56,7 +56,11 @@ trainer:
     num_nodes: 1
     accelerator: auto
     devices: auto
-    strategy: ddp_find_unused_parameters_false
+    strategy:
+        class_path: lightning.pytorch.strategies.DDPStrategy
+        init_args:
+            find_unused_parameters: false
+            gradient_as_bucket_view: true
     precision: 32
     sync_batchnorm: false
     accumulate_grad_batches: null
