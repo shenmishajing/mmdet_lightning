@@ -3,11 +3,13 @@ import time
 from types import MethodType
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
-from lightning.pytorch.cli import (LightningArgumentParser, LightningCLI,
-                                   SaveConfigCallback)
+from lightning.pytorch.cli import (
+    LightningArgumentParser,
+    LightningCLI,
+    SaveConfigCallback,
+)
 
-from utils.callbacks.save_and_log_config_callback import \
-    SaveAndLogConfigCallback
+from utils.callbacks.save_and_log_config_callback import SaveAndLogConfigCallback
 from utils.optim import get_configure_optimizers_method
 
 from .argument_parsers import ActionJsonFile
@@ -61,7 +63,7 @@ class CLI(LightningCLI):
         """Implement to run some code before instantiating the classes."""
         super().before_instantiate_classes()
         config = (
-            self.config["config"]
+            self.config
             if "subcommand" not in self.config
             else self.config[self.config["subcommand"]]
         )

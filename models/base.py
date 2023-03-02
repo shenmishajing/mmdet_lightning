@@ -19,8 +19,9 @@ class LightningModule(_LightningModule, BaseModule, ABC):
         self.automatic_lr_schedule = True
         self.manual_step_scedulers = []
         self._output_paths = []
+
+        # leave for auto lr finder
         self.lr = None
-        self.batch_size = None
 
         self.loss_weights = loss_weights
 
@@ -32,15 +33,6 @@ class LightningModule(_LightningModule, BaseModule, ABC):
         for scheduler in self.manual_step_scedulers:
             if self.trainer.global_step % scheduler["frequency"] == 0:
                 scheduler["scheduler"].step()
-
-    def log(self, *args, batch_size=None, **kwargs):
-        if (
-            batch_size is None
-            and hasattr(self, "batch_size")
-            and self.batch_size is not None
-        ):
-            batch_size = self.batch_size
-        super().log(*args, batch_size=batch_size, **kwargs)
 
     def _dump_init_info(self, *args, **kwargs):
         pass

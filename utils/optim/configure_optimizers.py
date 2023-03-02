@@ -86,28 +86,6 @@ def get_parameters(model, all_required_parameters):
     return parameters
 
 
-def construct_optimizer(model, optimizer, set_lr=False):
-    """
-    Constructs the optimizer.
-
-    Args:
-        model: a LightningModule.
-        optimizer: dictionary containing optimizer configuration.
-        set_lr: whether to set the learning rate by the model.lr
-    """
-    # set lr for lr finder
-    if model.lr is not None and set_lr:
-        if "init_args" not in optimizer:
-            optimizer["init_args"] = {}
-        optimizer["init_args"]["lr"] = model.lr
-
-    # construct optimizer
-    optimizer = instantiate_class(tuple(), optimizer)
-    if set_lr and model.lr is None:
-        model.lr = optimizer.defaults["lr"]
-    return optimizer
-
-
 def construct_lr_scheduler(lr_scheduler, optimizer):
     """
     Constructs the lr_scheduler.
@@ -146,14 +124,12 @@ def get_configure_optimizers_method(optim_config):
         parameters = get_parameters(self, all_required_parameters)
         manual_step_scedulers = []
 
-        for i, cfg in enumerate(optim_cfg):
+        for cfg in optim_cfg:
             # set parameters
             for p in cfg["optimizer"]["init_args"]["params"]:
                 p["params"] = parameters[p["params"]]
             # construct optimizer
-            cfg["optimizer"] = construct_optimizer(
-                self, cfg["optimizer"], set_lr=i == 0
-            )
+            cfg["optimizer"] = instantiate_class((), cfg["optimizer"])
             # construct lr_scheduler
             if "lr_scheduler" in cfg:
                 cfg["lr_scheduler"], manual_lr_scheduler = construct_lr_scheduler(
