@@ -4,6 +4,7 @@ from typing import Sequence
 from lightning.pytorch.cli import instantiate_class
 from mmdet.datasets import AspectRatioBatchSampler as _AspectRatioBatchSampler
 from mmengine.dataset import COLLATE_FUNCTIONS
+from torch.utils.data import Dataset
 
 from datasets.base import LightningDataModule
 
@@ -41,7 +42,10 @@ class MMDetDataSetAdapter(LightningDataModule):
 class AspectRatioBatchSampler(_AspectRatioBatchSampler):
     def __iter__(self) -> Sequence[int]:
         for idx in self.sampler:
-            data_info = self.sampler.dataset._sampler.data_source.get_data_info(idx)
+            if isinstance(self.sampler.dataset, Dataset):
+                data_info = self.sampler.dataset.get_data_info(idx)
+            else:
+                data_info = self.sampler.dataset._sampler.data_source.get_data_info(idx)
             width, height = data_info["width"], data_info["height"]
             bucket_id = 0 if width < height else 1
             bucket = self._aspect_ratio_buckets[bucket_id]
