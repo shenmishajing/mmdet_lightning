@@ -19,13 +19,10 @@ class MMDetDataSetAdapter(LightningDataModule):
 
     def setup(self, stage=None):
         super().setup(stage)
-        split_names = self._get_split_names(stage)
 
-        for name in split_names:
-            self.evaluators[name] = instantiate_class(tuple(), self.evaluator_cfg[name])
-            self.visualizers[name] = instantiate_class(
-                tuple(), self.visualizer_cfg[name]
-            )
+        for name in self.split_names:
+            self.evaluators[name] = instantiate_class((), self.evaluator_cfg[name])
+            self.visualizers[name] = instantiate_class((), self.visualizer_cfg[name])
 
             if hasattr(self.datasets[name], "metainfo"):
                 self.evaluators[name].dataset_meta = self.datasets[name].metainfo
