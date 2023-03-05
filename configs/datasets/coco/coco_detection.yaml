@@ -76,8 +76,7 @@ data:
                 batch_sampler:
                     class_path: datasets.mmdet_dataset_adapter.AspectRatioBatchSampler
             val:
-                batch_size: 1
-                num_workers: 4
+                batch_size: 8
                 drop_last: false
                 sampler:
                     init_args:
