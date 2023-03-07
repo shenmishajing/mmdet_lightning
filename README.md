@@ -11,10 +11,6 @@ on [here](https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_cl
 
 ### Config and config files ###
 
-#### mmengine config files ####
-
-See [mmengine config](https://mmengine.readthedocs.io/zh_CN/latest/advanced_tutorials/config.html) for more details.
-
 #### Yaml with merge config ####
 
 ##### Predefined config files #####

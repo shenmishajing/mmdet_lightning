@@ -5,10 +5,9 @@ from abc import ABC
 import torch
 from lightning.pytorch import LightningModule as _LightningModule
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-from mmengine.model import BaseModule
 
 
-class LightningModule(_LightningModule, BaseModule, ABC):
+class LightningModule(_LightningModule, ABC):
     def __init__(
         self,
         loss_weights=None,
@@ -33,9 +32,6 @@ class LightningModule(_LightningModule, BaseModule, ABC):
         for scheduler in self.manual_step_scedulers:
             if self.trainer.global_step % scheduler["frequency"] == 0:
                 scheduler["scheduler"].step()
-
-    def _dump_init_info(self, *args, **kwargs):
-        pass
 
     @staticmethod
     def add_prefix(log_dict, prefix="train", sep="/"):
