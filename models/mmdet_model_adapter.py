@@ -6,12 +6,13 @@ from types import MethodType
 import cv2
 import mmcv
 import torch
+from mmengine.model import BaseModule
 from torch import nn
 
 from .base import LightningModule
 
 
-class MMDetModelAdapter(LightningModule, ABC):
+class MMDetModelAdapter(LightningModule, BaseModule, ABC):
     """Lightning module specialized for EfficientDet, with metrics support.
 
     The methods `forward`, `training_step`, `validation_step`, `validation_epoch_end`
@@ -50,6 +51,9 @@ class MMDetModelAdapter(LightningModule, ABC):
             self.visualizer_kwargs = {}
         else:
             self.visualizer_kwargs = visualizer_kwargs
+
+    def _dump_init_info(self, *args, **kwargs):
+        pass
 
     def forward(self, batch, mode="loss"):
         self.batch_size = len(batch["inputs"])
