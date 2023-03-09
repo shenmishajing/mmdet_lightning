@@ -40,8 +40,8 @@ class LightningModule(_LightningModule, ABC):
     def forward(self, *args, **kwargs):
         raise NotImplementedError
 
-    def _loss_step(self, *args, **kwargs):
-        raise NotImplementedError
+    def _loss_step(self, batch, output, *args, **kwargs):
+        return output
 
     def loss_step(self, *args, use_loss_weight=True, **kwargs):
         loss = self._loss_step(*args, **kwargs)
