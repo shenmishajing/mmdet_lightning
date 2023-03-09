@@ -4,12 +4,11 @@ from abc import ABC
 from collections.abc import Mapping, Sequence
 
 from lightning.pytorch.cli import instantiate_class
-from lightning.pytorch.core.datamodule import (
-    LightningDataModule as _LightningDataModule,
-)
+from lightning.pytorch.core.datamodule import \
+    LightningDataModule as _LightningDataModule
 from sklearn.model_selection import KFold
-from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.dataset import Subset
+from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
+                              Subset)
 
 from utils import deep_update
 
@@ -17,7 +16,7 @@ from utils import deep_update
 class LightningDataModule(_LightningDataModule):
     def __init__(
         self,
-        dataset_cfg: dict,
+        dataset_cfg: dict = None,
         dataloader_cfg: dict = None,
     ):
         super().__init__()
@@ -83,6 +82,58 @@ class LightningDataModule(_LightningDataModule):
                 for name in self.split_names
             }
 
+    def _build_dataset(self, split):
+        self.datasets[split] = instantiate_class(tuple(), self.dataset_cfg[split])
+
+    def _build_collate_fn(self, collate_fn_cfg):
+        raise NotImplementedError
+
+    def _build_batch_sampler(self, batch_sampler_cfg, *args):
+        return instantiate_class(args, batch_sampler_cfg)
+
+    def _build_dataloader(self, dataset, split="train", set_batch_size=False):
+        kwargs = copy.deepcopy(self.dataloader_cfg.get(split, {}))
+
+        if set_batch_size:
+            kwargs["batch_size"] = self.batch_size
+
+        if "collate_fn" in kwargs:
+            kwargs["collate_fn"] = self._build_collate_fn(kwargs["collate_fn"])
+
+        if "batch_sampler" in kwargs:
+            # pytorch lightning set shuffle to True when distributed training
+            # so we may need to handle this when validation or test or predict
+            # or using no-distributed strategy like single device strategy
+            # and dp strategy, for detail of no-distributed strategy, see
+            # is_distributed func of lightning.pytorch.trainer.connectors.accelerator_connector
+            if "shuffle" in kwargs:
+                shuffle = kwargs.pop("shuffle")
+            else:
+                shuffle = False
+
+            if shuffle:
+                sampler = RandomSampler(dataset)
+            else:
+                sampler = SequentialSampler(dataset)
+
+            kwargs["batch_sampler"] = self._build_batch_sampler(
+                kwargs["batch_sampler"],
+                sampler,
+                kwargs.pop("batch_size", 1),
+                # pytorch lightning set drop_last to False when validation test or predict
+                # so we may need to handle this when training
+                kwargs.pop("drop_last", False),
+            )
+        return DataLoader(dataset, **kwargs)
+
+    def _dataloader(self, split, **kwargs):
+        return self._build_dataloader(
+            self.datasets[split],
+            split=split,
+            set_batch_size=split == self.split_names[0],
+            **kwargs
+        )
+
     def _get_split_names(self, stage=None):
         if self.trainer.overfit_batches > 0:
             split_names = ["train"]
@@ -96,22 +147,13 @@ class LightningDataModule(_LightningDataModule):
             split_names = [stage.lower()]
         return split_names
 
-    def _setup_dataset(self, split_name):
-        self.datasets[split_name] = self._build_data_set(split_name)
-
     def setup(self, stage=None):
         self.split_names = self._get_split_names(stage)
 
         for name in self.split_names:
-            self._setup_dataset(name)
+            self._build_dataset(name)
         self.dataset = self.datasets[self.split_names[0]]
         self.batch_size = self.dataloader_cfg[self.split_names[0]].get("batch_size", 1)
-
-    def _dataloader(self, split_name, **kwargs):
-        kwargs["set_batch_size"] = split_name == self.split_names[0]
-        return self._build_data_loader(
-            self.datasets[split_name], split=split_name, **kwargs
-        )
 
     def train_dataloader(self):
         return self._dataloader("train")
@@ -124,60 +166,6 @@ class LightningDataModule(_LightningDataModule):
 
     def predict_dataloader(self):
         return self._dataloader("predict")
-
-    def _build_data_set(self, split):
-        return instantiate_class(tuple(), self.dataset_cfg[split])
-
-    def _build_worker_init_fn(self, worker_init_fn_cfg):
-        raise NotImplementedError
-
-    def _build_collate_fn(self, collate_fn_cfg):
-        raise NotImplementedError
-
-    def _build_sampler(self, sampler_cfg, dataset):
-        return instantiate_class((dataset,), sampler_cfg)
-
-    def _build_batch_sampler(self, batch_sampler_cfg, sampler, batch_size, drop_last):
-        return instantiate_class((sampler, batch_size, drop_last), batch_sampler_cfg)
-
-    def _construct_data_loader(self, dataset, split="train", set_batch_size=False):
-        kwargs = copy.deepcopy(self.dataloader_cfg.get(split, {}))
-
-        if "worker_init_fn" in kwargs:
-            kwargs["worker_init_fn"] = self._build_worker_init_fn(
-                kwargs["worker_init_fn"]
-            )
-
-        if "collate_fn" in kwargs:
-            kwargs["collate_fn"] = self._build_collate_fn(kwargs["collate_fn"])
-
-        if "sampler" in kwargs:
-            kwargs["sampler"] = self._build_sampler(kwargs["sampler"], dataset)
-
-        if "batch_sampler" in kwargs:
-            if set_batch_size:
-                kwargs["batch_size"] = self.batch_size
-
-            kwargs["batch_sampler"] = self._build_batch_sampler(
-                kwargs["batch_sampler"],
-                kwargs.pop("sampler"),
-                kwargs.pop("batch_size", 1),
-                kwargs.pop("drop_last", False),
-            )
-        return DataLoader(dataset, **kwargs)
-
-    def _build_data_loader(self, dataset, split="train", set_batch_size=False):
-        if isinstance(dataset, Mapping):
-            return {
-                key: self._build_data_loader(ds, split, set_batch_size)
-                for key, ds in dataset.items()
-            }
-        elif isinstance(dataset, Sequence):
-            return [
-                self._build_data_loader(ds, split, set_batch_size) for ds in dataset
-            ]
-        else:
-            return self._construct_data_loader(dataset, split, set_batch_size)
 
 
 class KFoldLightningDataModule(LightningDataModule, ABC):
@@ -204,7 +192,7 @@ class KFoldLightningDataModule(LightningDataModule, ABC):
             self.folds[fold_name] = Subset(self.dataset, indices)
 
     def _fold_dataloader(self, split_name, **kwargs):
-        return self._build_data_loader(
+        return self._build_dataloader(
             self.folds[split_name], split=split_name, **kwargs
         )
 
