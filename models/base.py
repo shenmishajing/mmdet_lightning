@@ -37,8 +37,8 @@ class LightningModule(_LightningModule, ABC):
     def add_prefix(log_dict, prefix="train", sep="/"):
         return {f"{prefix}{sep}{k}": v for k, v in log_dict.items()}
 
-    def on_fit_start(self):
-        self.init_weights()
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError
 
     def _loss_step(self, *args, **kwargs):
         raise NotImplementedError
@@ -56,20 +56,30 @@ class LightningModule(_LightningModule, ABC):
             loss["loss"] = torch.sum(torch.stack(list(loss.values())))
         return loss
 
+    def forward_step(self, batch, split="val", *args, **kwargs):
+        loss_dict = self.loss_step(batch, self(batch))
+        self.log_dict(self.add_prefix(loss_dict, split), sync_dist=True)
+        return loss_dict
+
+    def forward_epoch_end(self, *args, **kwargs):
+        pass
+
     def training_step(self, batch, *args, **kwargs):
         loss_dict = self.loss_step(batch, self(batch))
         self.log_dict(self.add_prefix(loss_dict))
         return loss_dict
 
-    def validation_step(self, batch, *args, **kwargs):
-        loss_dict = self.loss_step(batch, self(batch))
-        self.log_dict(self.add_prefix(loss_dict, prefix="val"), sync_dist=True)
-        return loss_dict
+    def validation_step(self, *args, **kwargs):
+        return self.forward_step(split="val", *args, **kwargs)
 
-    def test_step(self, batch, *args, **kwargs):
-        loss_dict = self.loss_step(batch, self(batch))
-        self.log_dict(self.add_prefix(loss_dict, prefix="test"), sync_dist=True)
-        return loss_dict
+    def validation_epoch_end(self, *args, **kwargs):
+        return self.forward_epoch_end(split="val", *args, **kwargs)
+
+    def test_step(self, *args, **kwargs):
+        return self.forward_step(split="test", *args, **kwargs)
+
+    def test_epoch_end(self, *args, **kwargs):
+        return self.forward_epoch_end(split="test", *args, **kwargs)
 
     @staticmethod
     @rank_zero_only
