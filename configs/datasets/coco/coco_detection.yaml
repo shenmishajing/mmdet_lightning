@@ -71,16 +71,10 @@ data:
                 persistent_workers: true
                 collate_fn:
                     type: pseudo_collate
-                sampler:
-                    class_path: mmengine.dataset.DefaultSampler
                 batch_sampler:
                     class_path: datasets.mmdet_dataset_adapter.AspectRatioBatchSampler
             val:
                 batch_size: 8
-                drop_last: false
-                sampler:
-                    init_args:
-                        shuffle: false
 
 trainer:
     callbacks:
