@@ -76,8 +76,7 @@ class MMDetModelAdapter(LightningModule, BaseModule, ABC):
         return log_vars
 
     def training_step(self, batch, *args, **kwargs):
-        outputs = self(batch)
-        _, log_vars = self.model.parse_losses(outputs)
+        _, log_vars = self.model.parse_losses(self(batch))
         self.log_dict(self.add_prefix(log_vars))
         return log_vars
 
