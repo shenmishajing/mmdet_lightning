@@ -55,40 +55,31 @@ class MMDetModelAdapter(LightningModule, BaseModule, ABC):
     def _dump_init_info(self, *args, **kwargs):
         pass
 
+    def on_fit_start(self):
+        self.init_weights()
+
     def forward(self, batch, mode="loss"):
         self.batch_size = len(batch["inputs"])
         batch = self.model.data_preprocessor(batch, mode != "predict")
         return self.model._run_forward(batch, mode=mode)
 
-    def forward_step(self, batch, split="val"):
+    def forward_step(self, batch, split="val", *args, **kwargs):
         outputs = self(batch, mode="predict")
         self.trainer.datamodule.evaluators[split].process(outputs, batch)
         return outputs
 
-    def forward_epoch_end(self, split="val"):
+    def forward_epoch_end(self, split="val", *args, **kwargs):
         log_vars = self.trainer.datamodule.evaluators[split].evaluate(
             len(self.trainer.datamodule.datasets[split])
         )
         self.log_dict(self.add_prefix(log_vars, split), sync_dist=True)
         return log_vars
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, *args, **kwargs):
         outputs = self(batch)
         _, log_vars = self.model.parse_losses(outputs)
         self.log_dict(self.add_prefix(log_vars))
         return log_vars
-
-    def validation_step(self, batch, *args, **kwargs):
-        return self.forward_step(batch)
-
-    def validation_epoch_end(self, *args, **kwargs):
-        return self.forward_epoch_end()
-
-    def test_step(self, batch, *args, **kwargs):
-        return self.forward_step(batch, "test")
-
-    def test_epoch_end(self, *args, **kwargs):
-        return self.forward_epoch_end("test")
 
     def cam_visualization(self, batch, *args, **kwargs):
         batch = self.model.data_preprocessor(batch)
