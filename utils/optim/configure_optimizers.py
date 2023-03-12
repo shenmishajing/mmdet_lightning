@@ -39,11 +39,13 @@ def parser_optim_config(optim_config):
         for param_idx in range(len(optimizer_init_args["params"])):
             cur_params = optimizer_init_args["params"][param_idx]
             if not isinstance(cur_params, Mapping):
-                optimizer_init_args["params"][param_idx] = {"params": [cur_params]}
+                if not isinstance(cur_params, List):
+                    cur_params = [cur_params]
+                optimizer_init_args["params"][param_idx] = {"params": cur_params}
                 cur_params = optimizer_init_args["params"][param_idx]
             elif "params" not in cur_params:
                 cur_params["params"] = [None]
-            elif not isinstance(cur_params["params"], Sequence):
+            elif not isinstance(cur_params["params"], List):
                 cur_params["params"] = [cur_params["params"]]
 
             for p in cur_params["params"]:
