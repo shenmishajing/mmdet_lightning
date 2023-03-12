@@ -70,7 +70,7 @@ class LightningModule(_LightningModule, ABC):
             loss["loss"] = torch.sum(torch.stack(list(loss.values())))
         return loss
 
-    def forward_step(self, batch, split="val", *args, **kwargs):
+    def forward_step(self, batch, *args, split="val", **kwargs):
         loss_dict = self.loss_step(batch, self(batch))
         self.log_dict(self.flatten_dict(loss_dict, split), sync_dist=True)
         return loss_dict
