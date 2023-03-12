@@ -72,12 +72,12 @@ class MMDetModelAdapter(LightningModule, BaseModule, ABC):
         log_vars = self.trainer.datamodule.evaluators[split].evaluate(
             len(self.trainer.datamodule.datasets[split])
         )
-        self.log_dict(self.add_prefix(log_vars, split), sync_dist=True)
+        self.log_dict(self.flatten_dict(log_vars, split), sync_dist=True)
         return log_vars
 
     def training_step(self, batch, *args, **kwargs):
         _, log_vars = self.model.parse_losses(self(batch))
-        self.log_dict(self.add_prefix(log_vars))
+        self.log_dict(self.flatten_dict(log_vars))
         return log_vars
 
     def cam_visualization(self, batch, *args, **kwargs):
