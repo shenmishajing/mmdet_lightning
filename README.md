@@ -1,63 +1,38 @@
+## Introduction
+
+A generic project template based on [pytorch lightning](https://pytorch-lightning.readthedocs.io/en/stable/)
+
+## Feature
+
+- All features from [pytorch lightning](https://pytorch-lightning.readthedocs.io/en/stable/) and [lightning CLI](https://pytorch-lightning.readthedocs.io/en/stable/cli/lightning_cli.html). Especially, experiment manager feature, auto implement multi-node, multi-device, multi-accelerator support, etc.
+- Powerful [deep update](docs/configs/deep_update.md) feature for config file inherit to manage your config files in a more hierarchical way, see also [recommand config file structure](docs/configs/config_file_structure.md).
+- Multi and complex optimizers and lr_scheduler from CLI config support, see [doc](docs/core/optimizer_config.md).
+- Powerful and flexible LightningModule and LightningDataModule base class.
+- Cross-validation support with only one argument you have to change.
+- Useful auto lr finder and auto batch size scaler.
+
 ## Installation
 
-- install [pytorch](https://pytorch.org/get-started/locally/), torchvision etc. from their official site.
-- install required packages with `pip install -r requirements.txt`
-- install this project with `pip install -e .`
+See [installation docs](docs/installation/installation.md) for details.
 
 ## Usage
 
-This project base on the CLI of pytorch-lightning, you can get more information
-on [here](https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_cli.html).
+### CLI
 
-### Config and config files ###
+This project base on the [lightning CLI](https://pytorch-lightning.readthedocs.io/en/stable/cli/lightning_cli.html), so it support all feature from [pytorch lightning](https://pytorch-lightning.readthedocs.io/en/stable/) and [lightning CLI](https://pytorch-lightning.readthedocs.io/en/stable/cli/lightning_cli.html), you can get a brief introduction from [cli doc](docs/tools/cli.md).
 
-#### mmengine config files ####
+### Create models and datasets
 
-See [mmengine config](https://mmengine.readthedocs.io/zh_CN/latest/advanced_tutorials/config.html) for more details.
+As [pytorch lightning](https://pytorch-lightning.readthedocs.io/en/stable/), we use LightningModule to implement the model and train, val and test loop, use LightningDataModule to implement dataset and dataloaders, for detail, see [model doc](docs/core/model.md) and [dataset doc](docs/core/dataset.md)
 
-#### Yaml with merge config ####
+### Config optimizers and lr schedulers
 
-##### Predefined config files #####
+[pytorch lightning](https://pytorch-lightning.readthedocs.io/en/stable/) do not support multi optimizers and lr schedulers from cli, we add this feature, see [doc](docs/core/optimizer_config.md) for detail.
 
-The predefined config files are located at `configs/`.
+### Cross-validation
 
-Every config file under `configs/runs` is a complete config file, so you can run an experiment with just a config file
-from `configs/runs`. But every other config file is just a part of complete config file, you should use them by
-combining them with each other or write a complete config file under `configs/runs` using `__base__` to inherit from
-them.
+Set `num_folds` of trainer to a int bigger than one to start cross-validation, for details, see [doc](docs/core/trainer.md).
 
-##### Syntax #####
+### Config files
 
-The syntax of config file is [yaml](https://yaml.readthedocs.io/en/latest/) and some additional keyword described as
-follow.
-
-| keyword       | value                                                                                                                                                      | effect                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `__base__`    | `str` or `list[str]`,(each `str` should be a relative path from current cofig file)                                                                        | Merge every config one by one, current last.                                                           |
-| `__delete__`  | `True` or `str,int` or `list[str,int]`,`True` for delete all keys from other config, `str,int` only delete the specific key (for dict) or index (for list) | Delete some part of config from other.                                                                 |
-| `__import__`  | Any                                                                                                                                                        | Just delete this, for convenience of reference in yaml                                                 |
-| `change_item` | `list[[index, item]]`,used only when merge list                                                                                                            | Add ability of merg list, change the `list[index]` from other to `item`                                |
-| `insert_item` | `list[[index, item, (extend)]]`,used only when merge list                                                                                                  | Add ability of merg list, insert iterm to the `list` at `index`, extend=True if insert a list of items |
-| `pre_item`    | `Any`or `list[Any]`,used only when merge list                                                                                                              | Add ability of merg list, add the value in the start of the list from other to item                    |
-| `post_item`   | `Any`or `list[Any]`,used only when merge list                                                                                                              | Add ability of merg list, add the value in the end of the list from other to item                      |
-
-### CLI ###
-
-CLI script is located at `tools/cli.py`, so you can run it with `python tools/cli.py`.
-
-For commands and options, you can get all available options and commands from `python tools/cli.py --help`.
-
-#### Train ####
-
-You can start a experiment with command as follow, in which, `gpu_ids` is comma-separated id list or just one int.
-
-```bash
-CUDA_VISIBLE_DEVICES=<gpu_ids> python tools/cli.py fit --config configs/runs/path/to/config
-```
-
-#### Validation test and predict etc. ####
-
-```bash
-CUDA_VISIBLE_DEVICES=<gpu_ids> python tools/cli.py {validation, test, predict, tune} --config configs/runs/path/to/config
-```
-
+See [config file structure](docs/configs/config_file_structure.md), [deep update](docs/configs/deep_update.md), [yaml with merge](docs/configs/argument_parsers/yaml_with_merge.md) and [json file](docs/configs/argument_parsers/json_file.md)

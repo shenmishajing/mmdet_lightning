@@ -51,7 +51,7 @@ class CLI(LightningCLI):
 
     def add_default_arguments_to_parser(self, parser: LightningArgumentParser) -> None:
         super().add_default_arguments_to_parser(parser)
-        parser.add_argument("--json", action=ActionJsonFile)
+        parser.add_argument("--json-file", action=ActionJsonFile)
         parser.add_argument(
             "--optimizer_config",
             type=Optional[Dict],

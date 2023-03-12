@@ -3,10 +3,8 @@ import os.path as osp
 from copy import deepcopy
 from typing import Any, Dict
 
-from lightning.pytorch.loops.base import Loop
-from lightning.pytorch.loops.fit_loop import FitLoop
+from lightning.pytorch.loops import FitLoop, Loop
 from lightning.pytorch.trainer.states import TrainerFn
-
 
 
 class KFoldLoop(Loop):

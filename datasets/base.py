@@ -1,14 +1,14 @@
 import copy
 import string
-from abc import ABC
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
+from typing import List
 
 from lightning.pytorch.cli import instantiate_class
-from lightning.pytorch.core.datamodule import \
-    LightningDataModule as _LightningDataModule
+from lightning.pytorch.core.datamodule import (
+    LightningDataModule as _LightningDataModule,
+)
 from sklearn.model_selection import KFold
-from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
-                              Subset)
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Subset
 
 from utils import deep_update
 
@@ -23,6 +23,9 @@ class LightningDataModule(_LightningDataModule):
         self.split_names = ["train", "val", "test", "predict"]
         self.datasets = {}
         self.dataset = None
+        self.num_folds = None
+        self.folds = {}
+        self.splits = []
         self.batch_size = None
 
         self.dataset_cfg = self.get_split_config(dataset_cfg)
@@ -44,10 +47,10 @@ class LightningDataModule(_LightningDataModule):
                         )
                     last_name = name
 
-                if "split_info" in config:
+                if "split_info" in config and "split_format_to" in config["split_info"]:
                     config = config["split_info"]
 
-                    if not isinstance(config["split_format_to"], Sequence):
+                    if not isinstance(config["split_format_to"], List):
                         config["split_format_to"] = [config["split_format_to"]]
 
                     split_name_map = {
@@ -59,13 +62,20 @@ class LightningDataModule(_LightningDataModule):
                     split_name_map.update(config.get("split_name_map", {}))
                     config["split_name_map"] = split_name_map
 
+                    config.setdefault("split_prefix", "init_args")
                     config.setdefault("split_attr_split_str", ".")
 
                     for name in self.split_names:
-                        if res[name].get("init_args") is None:
-                            res[name]["init_args"] = {}
                         for split_attr in config["split_format_to"]:
-                            cur_cfg = res[name]["init_args"]
+                            cur_cfg = res[name]
+                            if config["split_prefix"] is not None:
+                                for s in config["split_prefix"].split(
+                                    config["split_attr_split_str"]
+                                ):
+                                    if s not in cur_cfg:
+                                        cur_cfg[s] = {}
+                                    cur_cfg = cur_cfg[s]
+
                             split_attr = split_attr.split(
                                 config["split_attr_split_str"]
                             )
@@ -86,49 +96,48 @@ class LightningDataModule(_LightningDataModule):
         self.datasets[split] = instantiate_class(tuple(), self.dataset_cfg[split])
 
     def _build_collate_fn(self, collate_fn_cfg):
-        raise NotImplementedError
+        return None
 
-    def _build_batch_sampler(self, batch_sampler_cfg, *args):
+    def _build_sampler(self, dataloader_cfg, dataset):
+        if "shuffle" in dataloader_cfg:
+            shuffle = dataloader_cfg.pop("shuffle")
+        else:
+            shuffle = False
+
+        if shuffle:
+            sampler = RandomSampler(dataset)
+        else:
+            sampler = SequentialSampler(dataset)
+        return sampler
+
+    def _build_batch_sampler(self, batch_sampler_cfg, dataset, *args):
         return instantiate_class(args, batch_sampler_cfg)
 
-    def _build_dataloader(self, dataset, split="train", set_batch_size=False):
-        kwargs = copy.deepcopy(self.dataloader_cfg.get(split, {}))
-
-        if set_batch_size:
-            kwargs["batch_size"] = self.batch_size
-
-        if "collate_fn" in kwargs:
-            kwargs["collate_fn"] = self._build_collate_fn(kwargs["collate_fn"])
-
-        if "batch_sampler" in kwargs:
-            # pytorch lightning set shuffle to True when distributed training
-            # so we may need to handle this when validation or test or predict
-            # or using no-distributed strategy like single device strategy
-            # and dp strategy, for detail of no-distributed strategy, see
-            # is_distributed func of lightning.pytorch.trainer.connectors.accelerator_connector
-            if "shuffle" in kwargs:
-                shuffle = kwargs.pop("shuffle")
-            else:
-                shuffle = False
-
-            if shuffle:
-                sampler = RandomSampler(dataset)
-            else:
-                sampler = SequentialSampler(dataset)
-
-            kwargs["batch_sampler"] = self._build_batch_sampler(
-                kwargs["batch_sampler"],
-                sampler,
-                kwargs.pop("batch_size", 1),
-                # pytorch lightning set drop_last to False when validation test or predict
-                # so we may need to handle this when training
-                kwargs.pop("drop_last", False),
+    def _handle_batch_sampler(self, dataloader_cfg, dataset, split="train"):
+        if "batch_sampler" in dataloader_cfg:
+            dataloader_cfg["batch_sampler"] = self._build_batch_sampler(
+                dataloader_cfg["batch_sampler"],
+                dataset,
+                self._build_sampler(dataloader_cfg, dataset),
+                dataloader_cfg.pop("batch_size", 1),
+                dataloader_cfg.pop("drop_last", False),
             )
-        return DataLoader(dataset, **kwargs)
+        return dataloader_cfg
+
+    def _build_dataloader(self, dataset, split="train", set_batch_size=False):
+        dataloader_cfg = copy.deepcopy(self.dataloader_cfg.get(split, {}))
+        if set_batch_size:
+            dataloader_cfg["batch_size"] = self.batch_size
+        dataloader_cfg["collate_fn"] = self._build_collate_fn(
+            dataloader_cfg.get("collate_fn", {})
+        )
+        return DataLoader(
+            dataset, **self._handle_batch_sampler(dataloader_cfg, dataset, split=split)
+        )
 
     def _dataloader(self, split, **kwargs):
         return self._build_dataloader(
-            self.datasets[split],
+            self.datasets[split] if self.num_folds is None else self.folds[split],
             split=split,
             set_batch_size=split == self.split_names[0],
             **kwargs
@@ -155,6 +164,19 @@ class LightningDataModule(_LightningDataModule):
         self.dataset = self.datasets[self.split_names[0]]
         self.batch_size = self.dataloader_cfg[self.split_names[0]].get("batch_size", 1)
 
+    def setup_folds(self, num_folds: int) -> None:
+        self.num_folds = num_folds
+        self.splits = [
+            split for split in KFold(num_folds).split(range(len(self.dataset)))
+        ]
+
+    def setup_fold_index(self, fold_index: int) -> None:
+        for indices, fold_name in zip(self.splits[fold_index], ["train", "val"]):
+            self.folds[fold_name] = Subset(self.dataset, indices)
+
+        for fold_name in ["test", "predict"]:
+            self.folds[fold_name] = self.folds["val"]
+
     def train_dataloader(self):
         return self._dataloader("train")
 
@@ -166,38 +188,3 @@ class LightningDataModule(_LightningDataModule):
 
     def predict_dataloader(self):
         return self._dataloader("predict")
-
-
-class KFoldLightningDataModule(LightningDataModule, ABC):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.num_folds = None
-        self.folds = {}
-        self.splits = []
-
-    def setup(self, stage=None):
-        super().setup(stage)
-        if "train" in self.split_names or "val" in self.split_names:
-            self.setup_folds(2)
-            self.setup_fold_index(0)
-
-    def setup_folds(self, num_folds: int) -> None:
-        self.num_folds = num_folds
-        self.splits = [
-            split for split in KFold(num_folds).split(range(len(self.dataset)))
-        ]
-
-    def setup_fold_index(self, fold_index: int) -> None:
-        for indices, fold_name in zip(self.splits[fold_index], ["train", "val"]):
-            self.folds[fold_name] = Subset(self.dataset, indices)
-
-    def _fold_dataloader(self, split_name, **kwargs):
-        return self._build_dataloader(
-            self.folds[split_name], split=split_name, **kwargs
-        )
-
-    def train_dataloader(self):
-        return self._fold_dataloader("train")
-
-    def val_dataloader(self):
-        return self._fold_dataloader("val")

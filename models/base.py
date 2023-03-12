@@ -1,10 +1,24 @@
 import os
 import shutil
 from abc import ABC
+from typing import Mapping
 
 import torch
 from lightning.pytorch import LightningModule as _LightningModule
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
+
+
+def _flatten_dict_gen(log_dict, prefix="train", sep="/"):
+    for k, v in log_dict.items():
+        new_key = prefix + sep + k if prefix else k
+        if isinstance(v, Mapping):
+            yield from flatten_dict(v, new_key, sep=sep).items()
+        else:
+            yield new_key, v
+
+
+def flatten_dict(log_dict, prefix="train", sep="/"):
+    return dict(_flatten_dict_gen(log_dict, prefix, sep))
 
 
 class LightningModule(_LightningModule, ABC):
@@ -34,8 +48,8 @@ class LightningModule(_LightningModule, ABC):
                 scheduler["scheduler"].step()
 
     @staticmethod
-    def add_prefix(log_dict, prefix="train", sep="/"):
-        return {f"{prefix}{sep}{k}": v for k, v in log_dict.items()}
+    def flatten_dict(log_dict, prefix="train", sep="/"):
+        return flatten_dict(log_dict, prefix, sep)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -58,7 +72,7 @@ class LightningModule(_LightningModule, ABC):
 
     def forward_step(self, batch, split="val", *args, **kwargs):
         loss_dict = self.loss_step(batch, self(batch))
-        self.log_dict(self.add_prefix(loss_dict, split), sync_dist=True)
+        self.log_dict(self.flatten_dict(loss_dict, split), sync_dist=True)
         return loss_dict
 
     def forward_epoch_end(self, *args, **kwargs):
@@ -66,7 +80,7 @@ class LightningModule(_LightningModule, ABC):
 
     def training_step(self, batch, *args, **kwargs):
         loss_dict = self.loss_step(batch, self(batch))
-        self.log_dict(self.add_prefix(loss_dict))
+        self.log_dict(self.flatten_dict(loss_dict))
         return loss_dict
 
     def validation_step(self, *args, **kwargs):

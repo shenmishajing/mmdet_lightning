@@ -1,5 +1,6 @@
 import copy
 from collections import defaultdict
+from itertools import chain
 from typing import List, Mapping, Sequence, Tuple, Union
 
 from lightning.pytorch import LightningModule
@@ -20,11 +21,11 @@ def parser_optim_config(optim_config):
         optim_config = [optim_config]
 
     all_required_parameters = set()
-    for i, optim_cfg in enumerate(optim_config):
+    for optim_idx, optim_cfg in enumerate(optim_config):
         # parse the optimizer config
         if "optimizer" not in optim_cfg:
-            optim_config[i] = {"optimizer": optim_cfg}
-            optim_cfg = optim_config[i]
+            optim_config[optim_idx] = {"optimizer": optim_cfg}
+            optim_cfg = optim_config[optim_idx]
 
         # parse the params of optimizers
         if "init_args" not in optim_cfg["optimizer"]:
@@ -35,22 +36,24 @@ def parser_optim_config(optim_config):
         if not isinstance(optimizer_init_args["params"], Sequence):
             optimizer_init_args["params"] = [optimizer_init_args["params"]]
 
-        optimizer_init_args["params"] = [
-            p if isinstance(p, Mapping) else {"params": p}
-            for p in optimizer_init_args["params"]
-        ]
+        for param_idx in range(len(optimizer_init_args["params"])):
+            cur_params = optimizer_init_args["params"][param_idx]
+            if not isinstance(cur_params, Mapping):
+                optimizer_init_args["params"][param_idx] = {"params": [cur_params]}
+                cur_params = optimizer_init_args["params"][param_idx]
+            elif "params" not in cur_params:
+                cur_params["params"] = [None]
+            elif not isinstance(cur_params["params"], Sequence):
+                cur_params["params"] = [cur_params["params"]]
 
-        assert all(
-            [
-                isinstance(p["params"], str) or p["params"] is None
-                for p in optimizer_init_args["params"]
-            ]
-        ), "params must be None or str"
+            for p in cur_params["params"]:
+                assert p is None or isinstance(p, str), (
+                    f"params must be None or str, but got {type(p)} in {param_idx}th"
+                    f" parameter of {optim_idx}th optimizer"
+                )
 
-        # get all required parameters
-        all_required_parameters.update(
-            [p["params"] for p in optimizer_init_args["params"]]
-        )
+            # get all required parameters
+            all_required_parameters.update(cur_params["params"])
 
         # parse the lr_scheduler config
         if "lr_scheduler" in optim_cfg:
@@ -103,11 +106,11 @@ def construct_lr_scheduler(lr_scheduler, optimizer):
     if "warmup_config" in lr_scheduler:
         manual_lr_scheduler = lr_scheduler.pop("warmup_config")
         if "scheduler" not in manual_lr_scheduler:
-            manual_lr_scheduler = {
-                "scheduler": {
-                    "class_path": "utils.optim.WarmupScheduler",
-                    "init_args": manual_lr_scheduler,
-                }
+            manual_lr_scheduler = {"scheduler": manual_lr_scheduler}
+        if "class_path" not in manual_lr_scheduler["scheduler"]:
+            manual_lr_scheduler["scheduler"] = {
+                "class_path": "utils.optim.WarmupScheduler",
+                "init_args": manual_lr_scheduler["scheduler"],
             }
         manual_lr_scheduler.setdefault("frequency", 1)
         manual_lr_scheduler["scheduler"] = instantiate_class(
@@ -126,8 +129,10 @@ def get_configure_optimizers_method(optim_config):
 
         for cfg in optim_cfg:
             # set parameters
-            for p in cfg["optimizer"]["init_args"]["params"]:
-                p["params"] = parameters[p["params"]]
+            for params in cfg["optimizer"]["init_args"]["params"]:
+                for i in range(len(params["params"])):
+                    params["params"][i] = parameters[params["params"][i]]
+                params["params"] = chain(*params["params"])
             # construct optimizer
             cfg["optimizer"] = instantiate_class((), cfg["optimizer"])
             # construct lr_scheduler
