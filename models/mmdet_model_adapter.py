@@ -63,12 +63,12 @@ class MMDetModelAdapter(LightningModule, BaseModule, ABC):
         batch = self.model.data_preprocessor(batch, mode != "predict")
         return self.model._run_forward(batch, mode=mode)
 
-    def forward_step(self, batch, split="val", *args, **kwargs):
+    def forward_step(self, batch, *args, split="val", **kwargs):
         outputs = self(batch, mode="predict")
         self.trainer.datamodule.evaluators[split].process(outputs, batch)
         return outputs
 
-    def forward_epoch_end(self, split="val", *args, **kwargs):
+    def forward_epoch_end(self, *args, split="val", **kwargs):
         log_vars = self.trainer.datamodule.evaluators[split].evaluate(
             len(self.trainer.datamodule.datasets[split])
         )
