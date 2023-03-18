@@ -75,7 +75,7 @@ class LightningModule(_LightningModule, ABC):
         self.log_dict(self.flatten_dict(loss_dict, split), sync_dist=True)
         return loss_dict
 
-    def forward_epoch_end(self, *args, **kwargs):
+    def on_forward_epoch_end(self, *args, **kwargs):
         pass
 
     def training_step(self, batch, *args, **kwargs):
@@ -86,14 +86,14 @@ class LightningModule(_LightningModule, ABC):
     def validation_step(self, *args, **kwargs):
         return self.forward_step(split="val", *args, **kwargs)
 
-    def validation_epoch_end(self, *args, **kwargs):
-        return self.forward_epoch_end(split="val", *args, **kwargs)
+    def on_validation_epoch_end(self, *args, **kwargs):
+        return self.on_forward_epoch_end(split="val", *args, **kwargs)
 
     def test_step(self, *args, **kwargs):
         return self.forward_step(split="test", *args, **kwargs)
 
-    def test_epoch_end(self, *args, **kwargs):
-        return self.forward_epoch_end(split="test", *args, **kwargs)
+    def on_test_epoch_end(self, *args, **kwargs):
+        return self.on_forward_epoch_end(split="test", *args, **kwargs)
 
     @staticmethod
     @rank_zero_only

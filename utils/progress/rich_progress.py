@@ -49,12 +49,12 @@ class RichDefaultThemeProgressBar(RichProgressBar):
             time_sec_avg = during_time / (
                 (self.trainer.current_epoch - self.start_epoch)
                 * self.total_train_batches
-                + self.train_batch_idx
+                + self.train_progress_bar.completed
             )
             eta_time = time_sec_avg * (
                 (self.trainer.max_epochs - self.trainer.current_epoch)
                 * self.total_train_batches
-                - self.train_batch_idx
+                - self.train_progress_bar.completed
             )
             items["ETA"] = str(datetime.timedelta(seconds=int(eta_time)))
         return items

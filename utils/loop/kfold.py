@@ -3,12 +3,12 @@ import os.path as osp
 from copy import deepcopy
 from typing import Any, Dict
 
-from lightning.pytorch.loops import FitLoop, Loop
+from lightning.pytorch.loops import _FitLoop, _Loop
 from lightning.pytorch.trainer.states import TrainerFn
 
 
-class KFoldLoop(Loop):
-    def __init__(self, num_folds: int, fit_loop: FitLoop = None) -> None:
+class KFoldLoop(_Loop):
+    def __init__(self, num_folds: int, fit_loop: _FitLoop = None) -> None:
         super().__init__()
         self.num_folds = num_folds
         self.current_fold = 0
@@ -18,7 +18,7 @@ class KFoldLoop(Loop):
 
     @property
     def export_path(self) -> str:
-        return os.path.join(self.trainer.log_dir, 'fold_checkpoints')
+        return os.path.join(self.trainer.log_dir, "fold_checkpoints")
 
     @property
     def done(self) -> bool:
