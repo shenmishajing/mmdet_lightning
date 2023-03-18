@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Sequence
 
-from lightning.fabric.utilities.distributed import _DatasetSamplerWrapper
 from lightning.pytorch.cli import instantiate_class
 from mmdet.datasets import AspectRatioBatchSampler as _AspectRatioBatchSampler
 from mmengine.dataset import COLLATE_FUNCTIONS
@@ -29,6 +28,9 @@ class MMDetDataSetAdapter(LightningDataModule):
                 self.evaluators[name].dataset_meta = self.datasets[name].metainfo
                 self.visualizers[name].dataset_meta = self.datasets[name].metainfo
 
+    def _build_batch_sampler(self, batch_sampler_cfg, dataset, *args):
+        return instantiate_class((dataset,) + args, batch_sampler_cfg)
+
     def _build_collate_fn(self, collate_fn_cfg):
         # The default behavior of `collat_fn` in dataloader is to
         # merge a list of samples to form a mini-batch of Tensor(s).
@@ -40,12 +42,16 @@ class MMDetDataSetAdapter(LightningDataModule):
 
 
 class AspectRatioBatchSampler(_AspectRatioBatchSampler):
+    def __init__(
+        self, dataset, sampler, batch_size: int, drop_last: bool = False
+    ) -> None:
+        super().__init__(sampler, batch_size, drop_last)
+
+        self.dataset = dataset
+
     def __iter__(self) -> Sequence[int]:
         for idx in self.sampler:
-            if isinstance(self.sampler.dataset, _DatasetSamplerWrapper):
-                data_info = self.sampler.dataset._sampler.data_source.get_data_info(idx)
-            else:
-                data_info = self.sampler.dataset.get_data_info(idx)
+            data_info = self.dataset.get_data_info(idx)
             width, height = data_info["width"], data_info["height"]
             bucket_id = 0 if width < height else 1
             bucket = self._aspect_ratio_buckets[bucket_id]
