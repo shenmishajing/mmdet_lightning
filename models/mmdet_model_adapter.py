@@ -68,7 +68,7 @@ class MMDetModelAdapter(LightningModule, BaseModule, ABC):
         self.trainer.datamodule.evaluators[split].process(outputs, batch)
         return outputs
 
-    def forward_epoch_end(self, *args, split="val", **kwargs):
+    def on_forward_epoch_end(self, *args, split="val", **kwargs):
         log_vars = self.trainer.datamodule.evaluators[split].evaluate(
             len(self.trainer.datamodule.datasets[split])
         )
