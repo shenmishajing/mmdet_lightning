@@ -75,7 +75,7 @@ data:
 trainer:
     callbacks:
         change_item:
-            - - -1
+            - - 0
               - init_args:
                     monitor: val/coco/bbox_mAP_50
                     filename: "epoch:{epoch}-val_map_50:{val/coco/bbox_mAP_50:.4g}"
