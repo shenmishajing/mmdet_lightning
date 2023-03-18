@@ -118,8 +118,6 @@ data:
                         filter_empty_gt: false
                     pipeline:
                         - type: mmdet.LoadImageFromFile
-                          file_client_args:
-                              backend: disk
                         - type: mmdet.LoadAnnotations
                           with_bbox: true
                         - type: mmdet.RandomFlip

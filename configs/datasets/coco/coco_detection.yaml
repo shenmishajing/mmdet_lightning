@@ -31,8 +31,6 @@ data:
                         min_size: 32
                     pipeline:
                         - type: mmdet.LoadImageFromFile
-                          file_client_args:
-                              backend: disk
                         - type: mmdet.LoadAnnotations
                           with_bbox: true
                         - type: mmdet.Resize
@@ -46,8 +44,6 @@ data:
                     test_mode: True
                     pipeline:
                         - type: mmdet.LoadImageFromFile
-                          file_client_args:
-                              backend: disk
                         - type: mmdet.LoadAnnotations
                           with_bbox: true
                         - type: mmdet.Resize
