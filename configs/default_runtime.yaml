@@ -6,6 +6,15 @@ trainer:
             save_dir: work_dirs
             offline: false
     callbacks:
+        - class_path: utils.callbacks.model_checkpoint.ModelCheckpointWithLinkBest
+          init_args:
+              monitor: val/loss
+              filename: "epoch:{epoch}-val_loss:{val/loss:.4g}"
+              save_top_k: 3
+              save_last: true
+              save_best: true
+              mode: min
+              auto_insert_metric_name: false
         - class_path: utils.progress.rich_progress.RichDefaultThemeProgressBar
           init_args:
               show_version: false
@@ -24,15 +33,11 @@ trainer:
               watch_model_cfg:
                   log: all
         - class_path: lightning.pytorch.callbacks.LearningRateMonitor
-        - class_path: utils.callbacks.model_checkpoint.ModelCheckpointWithLinkBest
-          init_args:
-              monitor: val/loss
-              filename: "epoch:{epoch}-val_loss:{val/loss:.4g}"
-              save_top_k: 3
-              save_last: true
-              save_best: true
-              mode: min
-              auto_insert_metric_name: false
+        # - class_path: lightning.pytorch.callbacks.BatchSizeFinder
+        #   init_args:
+        #       mode: binsearch
+        #       steps_per_trial: 10
+        # - class_path: utils.callbacks.lr_finder.LearningRateFinder
     # train len
     max_epochs: null
     min_epochs: null
