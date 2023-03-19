@@ -33,11 +33,6 @@ trainer:
               watch_model_cfg:
                   log: all
         - class_path: lightning.pytorch.callbacks.LearningRateMonitor
-        # - class_path: lightning.pytorch.callbacks.BatchSizeFinder
-        #   init_args:
-        #       mode: binsearch
-        #       steps_per_trial: 10
-        # - class_path: utils.callbacks.lr_finder.LearningRateFinder
     # train len
     max_epochs: null
     min_epochs: null

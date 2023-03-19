@@ -24,15 +24,16 @@ CUDA_VISIBLE_DEVICES=<gpu_ids> python tools/cli.py {validation, test, predict} -
 
 Auto find the largest batch size or largest power of two as batch size. You can get more information from [doc](https://lightning.ai/docs/pytorch/latest/advanced/training_tricks.html#batch-size-finder).
 
-To use this feature with this project, uncommit the callback in default_runtime.yaml, and run `fit`, `validate` etc. commands. But, the auto scale batch size do not support distributed strategy, so set strategy to `single_device` and use only one gpu to get the batch size.
+To use this feature with this project, and run `tools/model/batch_size_finder.py` script.
 ```bash
-CUDA_VISIBLE_DEVICES=<gpu_ids> python tools/cli.py fit --config configs/runs/path/to/config --trainer.strategy single_device
+CUDA_VISIBLE_DEVICES=<gpu_id> python tools/model/batch_size_finder.py --config configs/runs/path/to/config
 ```
+
 ### auto lr finder ###
 
 Auto find the best learning rate for models, currently only support the first optimizer. You can get more information from [doc](https://lightning.ai/docs/pytorch/latest/advanced/training_tricks.html#learning-rate-finder).
 
-To use this feature with this project, uncommit the callback in default_runtime.yaml, and run `fit`, `validate` etc. commands.
+To use this feature with this project, and `tools/model/lr_finder.py` script.
 ```bash
-CUDA_VISIBLE_DEVICES=<gpu_ids> python tools/cli.py fit --config configs/runs/path/to/config
+CUDA_VISIBLE_DEVICES=<gpu_id> python tools/model/lr_finder.py --config configs/runs/path/to/config
 ```
