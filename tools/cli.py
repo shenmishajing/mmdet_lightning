@@ -1,9 +1,9 @@
-from utils.cli import CLI
+from lightning_template.utils.cli import LightningCLI
 
 
 def main():
-    CLI()
+    LightningCLI()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

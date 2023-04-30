@@ -1,3 +1,1 @@
-scikit-learn
-lightning
-jsonargparse[all]
+mmlab_lightning

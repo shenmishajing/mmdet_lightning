@@ -4,7 +4,7 @@ import shutil
 import cv2
 import mmcv
 
-from .mmlab_model_adapter import MMLabModelAdapter
+from mmlab_lightning.model import MMLabModelAdapter
 
 
 class MMDetModelAdapter(MMLabModelAdapter):
