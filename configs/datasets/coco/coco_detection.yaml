@@ -1,0 +1,80 @@
+data:
+    class_path: datasets.mmdet_dataset_adapter.MMDetDataSetAdapter
+    init_args:
+        visualizer_cfg:
+            class_path: mmdet.visualization.DetLocalVisualizer
+            init_args:
+                text_color: white
+        evaluator_cfg:
+            split_info:
+                split_format_to: [metrics.ann_file]
+            train:
+                class_path: mmengine.evaluator.Evaluator
+                init_args:
+                    metrics:
+                        type: mmdet.CocoMetric
+                        ann_file: data/coco/annotations/instances_${split}2017.json
+                        metric: bbox
+                        format_only: false
+        dataset_cfg:
+            split_info:
+                split_format_to: [ann_file, data_prefix.img]
+            train:
+                class_path: mmdet.datasets.coco.CocoDataset
+                init_args:
+                    data_root: data/coco
+                    ann_file: annotations/instances_${split}2017.json
+                    data_prefix:
+                        img: ${split}2017
+                    filter_cfg:
+                        filter_empty_gt: True
+                        min_size: 32
+                    pipeline:
+                        - type: mmdet.LoadImageFromFile
+                        - type: mmdet.LoadAnnotations
+                          with_bbox: true
+                        - type: mmdet.Resize
+                          scale: !!python/tuple [1333, 800]
+                          keep_ratio: true
+                        - type: mmdet.RandomFlip
+                          prob: 0.5
+                        - type: mmdet.PackDetInputs
+            val:
+                init_args:
+                    test_mode: True
+                    pipeline:
+                        - type: mmdet.LoadImageFromFile
+                        - type: mmdet.LoadAnnotations
+                          with_bbox: true
+                        - type: mmdet.Resize
+                          scale: !!python/tuple [1333, 800]
+                          keep_ratio: true
+                        - type: mmdet.PackDetInputs
+                          meta_keys:
+                              [
+                                  "img_id",
+                                  "img_path",
+                                  "ori_shape",
+                                  "img_shape",
+                                  "scale_factor",
+                              ]
+        dataloader_cfg:
+            train:
+                batch_size: 3
+                num_workers: 8
+                prefetch_factor: 2
+                pin_memory: true
+                persistent_workers: true
+                batch_sampler:
+                    class_path: datasets.batch_sampler.aspect_ratio.AspectRatioBatchSampler
+            val:
+                batch_size: 8
+
+trainer:
+    callbacks:
+        change_item:
+            - - 0
+              - init_args:
+                    monitor: val/coco/bbox_mAP_50
+                    filename: "epoch:{epoch}-val_map_50:{val/coco/bbox_mAP_50:.4g}"
+                    mode: max
